@@ -66,7 +66,7 @@ Cutting a gene list allows to measure separately over- and underrepresented gene
  cut <- res %>% filter(!str_detect(gene, '\\|'), log2FoldChange < 0)
   
   gene_list <- -cut$log2FoldChange
-  names(gene_list) <- cut$gene%>%yeast_names_convert
+  names(gene_list) <- cut$gene%>%convert_names
   gene_list <- sort(gene_list, decreasing = T)
   
   norm_gsea <- clusterProfiler::gseGO(
@@ -75,3 +75,5 @@ Cutting a gene list allows to measure separately over- and underrepresented gene
     keyType = "ENSEMBL",
     ont = "BP")
 ```
+
+Information on using [clusterProfiler](https://bioconductor.org/packages/release/bioc/html/clusterProfiler.html) and [gprofiler2](https://biit.cs.ut.ee/gprofiler/page/r) 
