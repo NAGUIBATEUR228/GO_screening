@@ -1,30 +1,33 @@
 library(tidyverse)
-library("ggrepel")
-library('patchwork')
-library(clusterProfiler)#for GSEA
-library('org.Sc.sgd.db')
-library(gprofiler2)#for Fischer enrichment
+library(clusterProfiler) #for GSEA
+library('org.Sc.sgd.db') #database for Gene Onthology
+library(gprofiler2) #for Over Representation Analysis
 
 folder_with_fastq<-'exp'
-to<-read_tsv("../tables/tight_orfs.tsv")%>%
-  transmute(sys_name=`Gene > Systematic Name`,std_name= `Gene > Standard Name`)
+#table made with https://www.yeastgenome.org/
+#contains systematic and some standard gene names.
+to <- read_tsv("../tables/tight_orfs.tsv")%>%
+  transmute(sys_name = `Gene > Systematic Name`, std_name = `Gene > Standard Name`)
 
-to_join<-function(x){
-  y<-x%>%
-    transmute(sys_name=Confirmed_deletion,count)%>%
-    left_join(to,by=c("sys_name"))%>%
-    group_by(sys_name,std_name)%>%
-    summarise(count=sum(count))%>%
+#function that adds standard gene names to count table and reducts column number
+to_join <- function(x){
+  y <- x%>%
+    transmute(sys_name = Confirmed_deletion, count)%>%
+    left_join(to, by = c("sys_name"))%>%
+    group_by(sys_name, std_name)%>%
+    summarise(count = sum(count))%>%
     ungroup()
-  y$count[is.na(y$count)]<-0
+  y$count[is.na(y$count)] <- 0
   return(y)
 }
 
-
-yeast_genes <- read_tsv('../fin/yeast_gene_names.txt')
+#table with other synonyms of gene names. https://www.yeastgenome.org/
+yeast_genes <- read_tsv('..tables/yeast_gene_names.txt')
+#function converts all gene names either to systematic or standard with to_std=T option. 
 convert_names <- function(vals, to_std = F){
   if (length(vals) == 0){return(vals)}
   l <- tibble(syn = vals, id = (1:length(vals)))%>%
+   #gene names, combined with '|' are converted separately and returned back joined
     separate_longer_delim(syn, '|')%>%
     left_join(yeast_genes, by = 'syn')
   if (to_std) {
@@ -45,72 +48,102 @@ convert_names <- function(vals, to_std = F){
            pull(res))
 }
 
+#to_join analogue
 tighten <- function(x){
   x%>%
     mutate(std_name = convert_names(Confirmed_deletion, to_std = T))%>%
     transmute(sys_name = Confirmed_deletion, std_name, count)
 }
 
+#three following functions are presented as example of "cut_significant" function in ORA (look below)
+llk <- function(params, data) {
+  mu <- params[1]
+  sigma <- params[2]
+  
+  # Вычисление логарифма правдоподобия
+  ll <- sum(dnorm(data, mean = mu, sd = sigma, log = TRUE))
+  
+  return(-ll)
+}
+opt_llh<-function(x){
+  #m<-locmodes(x,lowsup=min(x),uppsup=max(x))$locations
+  #m<-log(m)
+  m<-0
+  optim(par=c(m,1), llk, data=x)$par
+  
+}
+cut_significant <- function(df, col, log = T){
+  vals <- df %>% pull({{col}})
+  if (log) {vals <- log(vals)}
+  mu_sigma <- opt_llh(vals)
+  quantile <- qnorm(0.95, mean = mu_sigma[1], sd = mu_sigma[2])
+  df%>%
+    filter(vals > quantile)
+}
+
+#paste0 allias
 "%+%" <- function(...){
   paste0(...)
 }
 
-workingDIR <- "C:/Users/zokmi/Desktop/study/coursework/mtx"
+workingDIR <- "C:/path/wd"
 setwd(workingDIR)
 
-seqdirs<-list.dirs(path='../'%+%folder_with_fastq,recursive = FALSE)%+%'/artem'
-seqfiles<-unlist(map(seqdirs, ~paste(.x,dir(.x)%>%str_subset("output_count.csv$"),sep='/')))
+#folder_with_fastq has folders for each fastq file with count data table in inner some_name folder.
+seqdirs <- list.dirs(path = '../' %+% folder_with_fastq, recursive = FALSE) %+% '/some_name' #e.g. ../folder_with_fastq/fastq_name/some_name
+seqfiles <- unlist(map(seqdirs, ~paste(.x, dir(.x) %>% str_subset("output_count.csv$"), sep='/'))) # ../folder_with_fastq/fastq_name/some_name/XYZ_output_count.csv
 
+#variables for the tables
 tablenames <- rep(c('d','g'),each=4)%+%rep(1:2,2,each = 2)%+%rep(1:2,4)
 
-
-read_files <- function(type,abrev,join=FALSE){
-  seqdirs<-get('seqdirs',envir = .GlobalEnv)
-  tablenames<-get('tablenames',envir = .GlobalEnv)
+#function reads files in 'seqdirs' directories with suffix defined by type, assigns them to variables named by combination of 'tablenames' and abrev. join = T applies to_join
+#also the name of a variable is added to 'exp' column(if join=T) and 'chiffre' table is returned containing variables and filenames correspondance.
+read_files <- function(type, abrev, join = FALSE){
+  seqdirs <- get('seqdirs', envir = .GlobalEnv)
+  tablenames <- get('tablenames', envir = .GlobalEnv)
   
-  seqfiles<-unlist(map(seqdirs, ~paste(.x,dir(.x)%>%str_subset(type%+%".csv$"),sep='/')))
+  seqfiles <- unlist(map(seqdirs, ~paste(.x, dir(.x)%>%str_subset(type %+% ".csv$"), sep = '/')))
   
   chiffre<-tibble(tablename=tablenames,seqfile=seqfiles)
   
   if(join){
-    map2(tablenames%+%abrev,seqfiles,
-         function(x,y){
+    map2(tablenames %+% abrev, seqfiles,
+         function(x, y){
            assign(x,
-                  read_csv(y,show_col_types = FALSE)%>%
+                  read_csv(y, show_col_types = FALSE)%>%
                     tighten%>%
-                    mutate(exp=x),
-                  envir=.GlobalEnv)
+                    mutate(exp = x),
+                  envir = .GlobalEnv)
          }
     )
   }
-  else{map2(tablenames%+%abrev,seqfiles,
-            function(x,y){
+  else{map2(tablenames %+% abrev, seqfiles,
+            function(x, y){
               assign(x,
-                     read_csv(y,show_col_types = FALSE),
-                     envir=.GlobalEnv)
+                     read_csv(y, show_col_types = FALSE),
+                     envir = .GlobalEnv)
             }
   )
   }
   return(chiffre)
 }
 
-chif<-read_files("output_count",'',TRUE)
-read_files("output_dm_count",'dm',TRUE)
-#read_files("mixaled",'m',TRUE)
-#read_files("mixaled_dm",'mdm',TRUE)
-read_files("blasted",'b',TRUE)
-read_files("blasted_dm",'bdm',TRUE)
+#reading tables with count data
+chif <- read_files("output_count", '', TRUE)
+read_files("output_dm_count", 'dm', TRUE)
+read_files("blasted", 'b', TRUE)
+read_files("blasted_dm", 'bdm', TRUE)
 
 tbs<-c(tablenames,
        tablenames %+% 'dm',
        tablenames %+% 'bdm',
        tablenames %+% 'b')
-
-counts <- purrr::reduce(map(tbs,get),full_join)%>%
-  pivot_wider(names_from = exp,values_from = count)%>%
+#making jcounts table
+counts <- purrr::reduce(map(tbs, get), full_join)%>%
+  pivot_wider(names_from = exp, values_from = count)%>%
   mutate(across(where(is.numeric),
-                ~ifelse(is.na(.x),0,.x)))%>%
-  mutate(name=ifelse(is.na(std_name),sys_name,std_name))
+                ~ifelse(is.na(.x), 0, .x)))%>%
+  mutate(name = ifelse(is.na(std_name), sys_name, std_name))
 colnames(counts)
 
 jcounts <- counts%>%dplyr::select(name, where(is.numeric))
@@ -126,7 +159,7 @@ jcounts <- jcounts %>% pivot_longer(- name,
 
 write_csv(jcounts,seqdirs[1]%+%'/../../jcounts_exp.csv')
 
-
+#correlations
 library('GGally')
 
 ggcorr(jcounts,
@@ -136,68 +169,55 @@ ggcorr(jcounts,
        color = "grey50",
        size=2)
 
-#reference NPVs
-
-#npvise<-function(col){
-#  col<-ifelse(col!=0,log(col),NA)
-#  dens<-density(col,bw=0.25,kernel='gaussian',na.rm=T)
-#  mode<-dens$x[which.max(dens$y)]
-#  dif<-col-mode
-#  sq<-dif*dif
-#  NPV<-ifelse(is.na(col),NA,dif/sqrt(1/nrow(na.omit(jcounts))*sum(sq,na.rm=T)))
-#  return(NPV)
-#}
-
-jcounts
 
 #Set working directory
-setwd("C:/Users/zokmi/Desktop/study/coursework/exp")
+setwd("C:/path/exp")
 jcounts <- read_csv("jcounts_exp.csv")
 
-
+#normalisation of the counts
 jc <- jcounts%>%
   filter(if_any(where(is.numeric), ~.x!=0))
-n = jc%>%dplyr::select(!name)%>%colSums%>%mean
-jc<-jc%>%mutate(across(!name, ~ .x / sum(.x) * n))
+n = jc%>%dplyr::select(!name) %>% colSums %>% mean
+jc <- jc %>% mutate(across(!name, ~ .x / sum(.x) * n))
+
 
 jc%>%
-  filter(d1>0)%>%
+#d1 is an original pool
+  filter(d1 > 0)%>%
   mutate(across(!name, ~ .x + 1))%>%
   mutate(across(!name, ~ .x / d1))%>%
   mutate(across(!name, ~ log2(.x))) -> to_go
 
-
-
 to_go$g1%>%hist(breaks = 1000)
 
+#GSEA
 
 GO_norm<-tibble(pvalue = numeric(), Description = character(), condition = character(), overrep = logical(), geneID = character())
 
-
 for (i in c('g1_d1', 'g2_d2', 'd2_d1', 'g2_g1')){
   condition <- i
-  t=str_split_1(condition,'_')[1]
-  u=str_split_1(condition,'_')[2]
+  t = str_split_1(condition, '_')[1]
+  u = str_split_1(condition, '_')[2]
   to_go %>%
     dplyr::select(name, starts_with(t) | starts_with(u)) %>%
     mutate(log2FoldChange = !!sym(t) - !!sym(u)) %>% 
     mutate(gene = name) %>% 
     dplyr::select(gene, log2FoldChange) -> res
-  
-  cut<-res%>%filter(!str_detect(gene,'\\|'), log2FoldChange > 0)
+
+  #consider cutting conditions
+  cut <- res %>% filter(!str_detect(gene, '\\|'), log2FoldChange > 0)
   
   gene_list <- cut$log2FoldChange
   names(gene_list) <- cut$gene%>%yeast_names_convert
   gene_list <- sort(gene_list, decreasing = T)
-  
   
   norm_gsea <- clusterProfiler::gseGO(
     geneList = gene_list,
     OrgDb = org.Sc.sgd.db,
     keyType = "ENSEMBL",
     ont = "BP")
-  
-  
+
+  #adding result to GO_norm
   if ( "core_enrichment" %in% names(norm_gsea@result)){
     gene_clust <- norm_gsea@result$core_enrichment%>%
       map(~yeast_names_convert(str_split(., '\\/')%>%
@@ -209,10 +229,10 @@ for (i in c('g1_d1', 'g2_d2', 'd2_d1', 'g2_g1')){
       add_row(GO_norm,.)
   }
   
-  cut<-res%>%filter(!str_detect(gene,'\\|'), log2FoldChange < 0)
+  cut <- res %>% filter(!str_detect(gene, '\\|'), log2FoldChange < 0)
   
   gene_list <- -cut$log2FoldChange
-  names(gene_list) <- cut$gene%>%yeast_names_convert
+  names(gene_list) <- cut$gene %>% yeast_names_convert
   gene_list <- sort(gene_list, decreasing = T)
   norm_gsea <- clusterProfiler::gseGO(
     geneList = gene_list,
@@ -234,7 +254,7 @@ for (i in c('g1_d1', 'g2_d2', 'd2_d1', 'g2_g1')){
   
 }
 
-GO_norm%>%mutate(overrep = factor(overrep, levels = c(T,F)))%>%arrange(condition, overrep, pvalue)%>%
+GO_norm %>% mutate(overrep = factor(overrep, levels = c(T,F))) %>% arrange(condition, overrep, pvalue)%>%
 write_tsv('./GSEA_exp.txt')
 
 GSEA_exp_to_split <- read_tsv('./GSEA_exp.txt')
@@ -242,21 +262,21 @@ files <- GSEA_exp_to_split$condition %>% unique
 map(files, ~ write_tsv(GSEA_exp_to_split %>% filter(str_detect(condition, .x)),'./GSE_exp_' %+% .x %+% '.txt'))
 
 
-#for gprofiler2
+#ORA
 
 GO_report<-tibble(p_value = numeric(), term_name = character(),  condition = character(), intersection = character(), overrep = logical())
 
 for (i in c('g1_d1', 'g2_d2', 'd2_d1', 'g2_g1')){
   condition <- i
-  t=str_split_1(condition,'_')[1]
-  u=str_split_1(condition,'_')[2]
+  t = str_split_1(condition, '_')[1]
+  u = str_split_1(condition, '_')[2]
   to_go %>%
     dplyr::select(name, starts_with(t) | starts_with(u)) %>%
     mutate(log2FoldChange = !!sym(t) - !!sym(u)) %>% 
     mutate(gene = name) %>% 
     dplyr::select(gene, log2FoldChange) -> res
 
-res%>%cut_significant(log2FoldChange, F)->cut
+res %>% cut_significant(log2FoldChange, F) -> cut
 
 geneList <- cut$gene%>%convert_names()
 bgList <- res$gene%>%convert_names()
@@ -270,7 +290,8 @@ GOres <- gost(geneList,
               correction_method = 'fdr', 
               custom_bg = bgList, 
               sources = c('GO:BP', 'KEGG'), 
-              domain_scope = 'custom_annotated', evcodes = TRUE)#можно убрать аннотейтед изъ скопа, и помѣнять fdr на gSCS
+              domain_scope = 'custom_annotated', 
+              evcodes = TRUE)
 GO_report <- GOres$res%>%
   dplyr::select(p_value, term_name, intersection)%>%
   as_tibble()%>%
@@ -285,9 +306,19 @@ res%>%
   mutate(log2FoldChange = - log2FoldChange)%>%
   cut_significant(log2FoldChange, F)->cut
 
-geneList <- cut$gene%>%convert_names()
+geneList <- cut$gene %>% convert_names()
 
-GOres <- gost(geneList, organism = 'scerevisiae', ordered_query = T, measure_underrepresentation = F, user_threshold = 0.05, significant = F, correction_method = 'fdr', custom_bg = bgList, sources = c('GO:BP', 'KEGG'), domain_scope = 'custom_annotated', evcodes = TRUE)#можно убрать аннотейтед изъ скопа, и помѣнять fdr на gSCS
+GOres <- gost(geneList, 
+              organism = 'scerevisiae', 
+              ordered_query = T, 
+              measure_underrepresentation = F, 
+              user_threshold = 0.05, 
+              significant = F, 
+              correction_method = 'fdr', 
+              custom_bg = bgList, 
+              sources = c('GO:BP', 'KEGG'), 
+              domain_scope = 'custom_annotated', 
+              evcodes = TRUE)
 GO_report <- GOres$res%>%
   dplyr::select(p_value, term_name, intersection)%>%
   as_tibble()%>%
