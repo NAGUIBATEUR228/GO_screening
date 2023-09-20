@@ -76,4 +76,4 @@ Cutting a gene list allows to measure separately over- and underrepresented gene
     ont = "BP")
 ```
 
-Information on using [clusterProfiler](https://bioconductor.org/packages/release/bioc/html/clusterProfiler.html) and [gprofiler2](https://biit.cs.ut.ee/gprofiler/page/r) 
+Look for information on using [clusterProfiler](https://bioconductor.org/packages/release/bioc/html/clusterProfiler.html) and [gprofiler2](https://biit.cs.ut.ee/gprofiler/page/r) 
