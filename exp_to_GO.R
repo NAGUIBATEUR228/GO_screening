@@ -208,7 +208,7 @@ for (i in c('g1_d1', 'g2_d2', 'd2_d1', 'g2_g1')){
   cut <- res %>% filter(!str_detect(gene, '\\|'), log2FoldChange > 0)
   
   gene_list <- cut$log2FoldChange
-  names(gene_list) <- cut$gene%>%yeast_names_convert
+  names(gene_list) <- cut$gene%>%convert_names
   gene_list <- sort(gene_list, decreasing = T)
   
   norm_gsea <- clusterProfiler::gseGO(
@@ -220,7 +220,7 @@ for (i in c('g1_d1', 'g2_d2', 'd2_d1', 'g2_g1')){
   #adding result to GO_norm
   if ( "core_enrichment" %in% names(norm_gsea@result)){
     gene_clust <- norm_gsea@result$core_enrichment%>%
-      map(~yeast_names_convert(str_split(., '\\/')%>%
+      map(~convert_names(str_split(., '\\/')%>%
                                  unlist(), to_std = T))%>%
       map(~str_flatten(., collapse = '/'))%>% as.character()
     GO_norm <- norm_gsea@result%>%
@@ -232,7 +232,7 @@ for (i in c('g1_d1', 'g2_d2', 'd2_d1', 'g2_g1')){
   cut <- res %>% filter(!str_detect(gene, '\\|'), log2FoldChange < 0)
   
   gene_list <- -cut$log2FoldChange
-  names(gene_list) <- cut$gene %>% yeast_names_convert
+  names(gene_list) <- cut$gene %>% convert_names
   gene_list <- sort(gene_list, decreasing = T)
   norm_gsea <- clusterProfiler::gseGO(
     geneList = gene_list,
@@ -243,7 +243,7 @@ for (i in c('g1_d1', 'g2_d2', 'd2_d1', 'g2_g1')){
   
   if ( "core_enrichment" %in% names(norm_gsea@result)){
     gene_clust <- norm_gsea@result$core_enrichment%>%
-      map(~yeast_names_convert(str_split(., '\\/')%>%
+      map(~convert_names(str_split(., '\\/')%>%
                                  unlist(), to_std = T))%>%
       map(~str_flatten(., collapse = '/'))%>% as.character()
     GO_norm <- norm_gsea@result%>%
