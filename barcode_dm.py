@@ -22,9 +22,9 @@ def rc(seq):
 
 ud={'u1':u1,'u2':u2,'u1_rc':rc(u1),'u2_rc':rc(u2)}
 
-print('directory with script: C:\\Users\\zokmi\\Desktop\\study\\coursework\\')
+print('directory with script: C:\\Users\\zok\\')
 directory=input('enter directory with data: ')
-path=f'C:\\Users\\zokmi\\Desktop\\study\\coursework\\{directory}\\'
+path=f'C:\\Users\\zok\\{directory}\\'
 print(str(datetime.now())+' '+path)
 ref=pd.read_csv(f'{path}..\\reference.txt')
 
