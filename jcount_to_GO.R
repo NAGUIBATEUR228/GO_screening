@@ -191,7 +191,9 @@ map(files, ~ write_tsv(GSEA_exp_to_split %>%
                          filter(str_detect(condition, .x)),
                        './GSE_exp_' %+% .x %+% '.txt'))
 
-#ORA
+################
+##### ORA
+################
 GO_report <- tibble(p_value = numeric(), 
                     term_name = character(),  
                     condition = character(), 
