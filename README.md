@@ -1,10 +1,24 @@
 # Gene onthology of yeast deletion collection BarSeq analysis
 
-Yeast deletion (knockout) collection - **YKOC** - is used for genetic screenings, because each strain has a deletion with a unique 20-nucleotide barcode flanked with adapters for primers. Barcode suquencing (BarSeq) allows to estimate relative ammount of each deletion strain in different conditions. But this information is not full enough for choosing any strain for following assay.
-Here we introduce a pipeline for Gene Onthology analysis of BarSeq experiment data.*
-*Also the barseq analysis scripts are presented and discussed below.
+Yeast deletion (knockout) collection - **YKOC** - is used for genetic screenings, because each strain has a deletion with a unique 20-nucleotide barcode flanked with adapters for primers. Barcode suquencing (BarSeq) allows to estimate relative ammount of each deletion strain in different conditions. But this information is not full enough for choosing any strain for following assay.  
+Here we introduce a pipeline for Gene Onthology analysis of BarSeq experiment data.
 
-The code is written in R 4.3.1 language
+###Repository overview
+`barcode_analysis.R` - script that transforms fastq files to count tables  
+it requires `puddu.txt` and `ref_nm.txt` and produces also  `reference.txt`:  
+`puddu.txt` - table based on Puddu et al. whole genome sequencing of YKOC  
+`ref_nm.txt` - a table with original reference barcodes  
+`reference.txt` - summary reference barcode table based on `puddu.txt` and `ref_nm.txt`  
+
+`barocde_dm.py` - script that extracts barcodes as `barcode_analysis.R` from reads with inaccurate adapter sequence  
+`barcode_blast.py` - script that matches mutant barcodes using BLAST command line program  
+
+`exp_to_jcounts.R` - script that joines experimental count tables to ORf vs expriment count table  
+`jcount_to_GO.R` -  script that performs GO analysis of `jcounts_exp.txt` table  
+both these scripts require `tight_orfs.tsv` and `yeast_gene_names.txt` - the tables with standard and systematic gene names.
+
+##[jcount_to_GO.R](https://github.com/NAGUIBATEUR228/GO_screening/blob/main/jcount_to_GO.R)
+The code is written in `R 4.3.1` language
 
 ```r
 library(tidyverse)
@@ -46,7 +60,11 @@ jc%>%
 The table for results of Gene Set Enrichment Analysis has columns with p-value of GO-term, name of GO-term, condition i.e. which experiments are compared, overrepresented or not the term in a "treated" experiment, gene IDs in term.
 ```r
 #GSEA
-GO_norm<-tibble(pvalue = numeric(), Description = character(), condition = character(), overrep = logical(), geneID = character())
+GO_norm <- tibble(pvalue = numeric(),
+           Description = character(),
+           condition = character(),
+           overrep = logical(),
+           geneID = character())
 ```
 
 Subtracting LogFC provides proper LogFC for these experiments in condition.
@@ -78,5 +96,5 @@ Cutting a gene list allows to measure separately over- and underrepresented gene
 
 Look for information on using [clusterProfiler](https://bioconductor.org/packages/release/bioc/html/clusterProfiler.html) and [gprofiler2](https://biit.cs.ut.ee/gprofiler/page/r) 
 
-### BarSeq scripts
+
 
