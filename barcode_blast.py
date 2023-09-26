@@ -17,7 +17,7 @@ path = f 'C:\\Users\\zokmi\\Desktop\\study\\coursework\\{directory}\\'
 print(str(datetime.now()) + ' ' + path)# import reference barcode table, made by R scirpt
 ref = pd.read_csv(f '{path}..\\reference.txt')
 print(str(datetime.now()))
-print(ref.head(5))# refcd = ref.groupby('Confirmed_deletion').agg(#UPTAG_notes = ('UPTAG_notes', lambda x: '|'.join(x[~pd.isna(x)].drop_duplicates())), #UPTAG_seqs = ('UPTAG_seqs', lambda x: '|'.join(x[~pd.isna(x)].drop_duplicates())#)#).reset_index()# print(refcd.head(5))
+print(ref.head(5))
 
 dirs = list()
 for i in os.listdir(path): #list of directory and file names
