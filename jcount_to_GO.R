@@ -40,20 +40,6 @@ convert_names <- function(vals, to_std = F){
   )
 }
 
-######### function to cut significant results
-cut_significant <- function(df, col, log = T){
-  vals <- df %>% pull({{col}})
-  if (log) {vals <- log(vals)}
-  mu_sigma <- opt_llh(vals)
-  quantile <- qnorm(0.95, mean = mu_sigma[1], sd = mu_sigma[2])
-  df %>% filter(vals > quantile)
-}
-
-# Paste0 alias
-"%+%" <- function(...){
-  paste0(...)
-}
-
 #three following functions are presented as example of "cut_significant" function in ORA (look below)
 llk <- function(params, data) {
   mu <- params[1]
@@ -68,6 +54,20 @@ opt_llh<-function(x){
   m<-0
   optim(par=c(m,1), llk, data=x)$par
   
+}
+
+######### function to cut significant results
+cut_significant <- function(df, col, log = T){
+  vals <- df %>% pull({{col}})
+  if (log) {vals <- log(vals)}
+  mu_sigma <- opt_llh(vals)
+  quantile <- qnorm(0.95, mean = mu_sigma[1], sd = mu_sigma[2])
+  df %>% filter(vals > quantile)
+}
+
+# Paste0 alias
+"%+%" <- function(...){
+  paste0(...)
 }
 
 
