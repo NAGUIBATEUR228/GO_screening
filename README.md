@@ -18,6 +18,17 @@ it requires `puddu.txt` and `ref_nm.txt` and produces also  `reference.txt`:
 `jcount_to_GO.R` -  script that performs GO analysis of `jcounts_exp.txt` table  
 both these scripts require `tight_orfs.tsv` and `yeast_gene_names.txt` - the tables with standard and systematic gene names.
 
+`GSEA_exp.txt` - a table with all GO terms found in comparisons
+|pvalue|Description|condition|overrep|geneID|
+|--|--|--|--|--|
+|1e-10|translation|d2_d1|FALSE|ZUO1/RPL21A/LSO2...|
+
+***pvalue*** - corrected pvalue of a GO term  
+***Description*** - description of a GO term  
+***condition*** - describes which columns of jcounts are compared (treated_untreated)  
+***overrep*** - TRUE means that the positive LogFC genes were analysed, i.e. overrepresented in treated. FALSE corresponds to negative LogFC.  
+***geneID*** - a list of genes in GO term separated by slash
+
 ## [jcount_to_GO.R](https://github.com/NAGUIBATEUR228/GO_screening/blob/main/jcount_to_GO.R)
 
 The code is written in `R 4.3.1` language
