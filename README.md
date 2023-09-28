@@ -5,7 +5,7 @@ Here we introduce a pipeline for Gene Onthology analysis of BarSeq experiment da
 
 ### Repository overview
 
-`barcode_analysis.R` - script that transforms fastq files to count tables  
+[`barcode_analysis.R`](https://github.com/NAGUIBATEUR228/GO_screening/blob/main/barcode_analysis.R) - script that transforms fastq files to count tables  
 it requires `puddu.txt` and `ref_nm.txt` and produces also  `reference.txt`:  
 `puddu.txt` - table based on Puddu et al. whole genome sequencing of YKOC  
 `ref_nm.txt` - a table with original reference barcodes  
