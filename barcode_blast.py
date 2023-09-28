@@ -4,15 +4,15 @@ import pandas as pd
 import re
 from datetime import datetime
 from sys import argv
-
+#choose whether reads are already blasted
 if len(argv) > 1:
     need_to_BLAST = bool(int(argv[1]))
 else:
     need_to_BLAST = True
 
-print('directory with script: C:\\Users\\zokmi\\Desktop\\study\\coursework\\')
+print('directory with script: C:\\path\\')
 directory = input('enter directory with data: ')
-path = f'C:\\Users\\zokmi\\Desktop\\study\\coursework\\{directory}\\'
+path = f'C:\\path\\{directory}\\'
 print(str(datetime.now()) + ' ' + path)
 # import reference barcode table, made by R scirpt
 ref = pd.read_csv(f'{path}..\\reference.txt')
@@ -25,7 +25,7 @@ for i in os.listdir(path):  # list of directory and file names
         dirs.append(i)
 print(str(datetime.now()) + ' ' + str(dirs))  # directories with fastq files
 if need_to_BLAST:
-    # making fasta file for BLAST database
+    # make fasta file for BLAST database
     f = open('./ref_db.fasta', "w")
     for i in range(len(ref['UPTAG_seqs'])):
         i1 = ref['UPTAG_seqs'][i]
@@ -42,9 +42,10 @@ sumblastdm = pd.DataFrame({
     'exp': [], 'all_count': [], 'm_count': [], 'percentage': [], 'qual': []
 })
 
+# obtain all not_matched barcodes in files
 barcodes = pd.Series(dtype=object)
 for i in dirs:
-    p = path + i + '\\artem'
+    p = path + i + '\\output_folder'
     content = os.listdir(p)
     files = []
     for file in content:
@@ -54,7 +55,6 @@ for i in dirs:
     # parsing not_matched files in folders
     for j in files:
         nb = pd.read_csv(f'{p}\\{j}')  # not_matched table
-        # print(len(nb[~nb['barcode'].isin(barcodes)]))
         barcodes = pd.Series(pd.concat([barcodes, nb['barcode']], ignore_index=True).unique())
 
 print(len(barcodes))
@@ -65,10 +65,10 @@ if need_to_BLAST:
     f.close()
     os.system(f'cd {path}')
     print(str(datetime.now()) + ' ' + f'{p}\\all.fasta')
-    # BLAST command, searching not_matched sequences in database ref. output file end with blastout3.txt. e-value 10, alignment initiating word size 6, search on the same strand, finds only the best hit. outfile contains different information about alignment in tsv format.
+    # search with blastn not_matched sequences in database ref. output file end with blastout3.txt. e-value 10, alignment initiating word size 6, search on the same strand, finds only the best hit. outfile contains different information about alignment in tsv format.
     os.system(
         f'blastn -query {path}\\all.fasta -db ref -out {path}\\all_blastout.txt -evalue 10 -word_size 6 -strand plus -max_target_seqs 1 -max_hsps 1 -outfmt \"6 qacc qlen sacc slen length nident evalue qstart qend sstart send\" -num_threads 10')  # -num_threads 8
-    # subtracting -unknownseqname in outfile.
+    # subtract -unknownseqname in outfile.
     with open(f'{path}\\all_blastout.txt', 'r') as f:
         old_data = f.read()
     new_data = 'qacc\tqlen\tsacc\tslen\tlength\tnident\tevalue\tqstart\tqend\tsstart\tsend\n' + old_data.replace(
@@ -83,7 +83,7 @@ if need_to_BLAST:
 
 check = pd.read_csv(f'{path}\\all_blastout.txt', sep='\t')
 print(check)
-# filtering distance between sequences
+# filter distance between sequences
 check['dist'] = (check['slen'] + check['qlen'] - check['length'] - check['nident'])
 check = check[check['dist'] <= 2]
 print(len(check))
@@ -97,7 +97,7 @@ full = full[~pd.isna(full['qacc'])].reset_index()[['barcode', 'Confirmed_deletio
 print(full)
 
 for i in dirs:
-    p = path + i + '\\artem'
+    p = path + i + '\\output_folder'
     content = os.listdir(p)
     files = []
     for file in content:
@@ -135,7 +135,7 @@ print(str(sumblast['percentage'].tolist()) + ' ' + 'DONE')
 sumblast.to_csv(f'{path}sumblast.csv', index=False)
 
 for i in dirs:
-    p = path + i + '\\artem'
+    p = path + i + '\\output_folder'
     content = os.listdir(p)
     files = []
     for file in content:
