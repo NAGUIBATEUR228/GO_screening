@@ -13,6 +13,7 @@ it requires `puddu.txt` and `ref_nm.txt` and produces also  `reference.txt`:
 
 `barocde_dm.py` - script that extracts barcodes as `barcode_analysis.R` from reads with inaccurate adapter sequence  
 `barcode_blast.py` - script that matches mutant barcodes using BLAST command line program  
+> to install blastn on local computer download [here](https://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/LATEST/) for example `ncbi-blast-2.14.1+-win64.exe` and add bin/blastn to the PATH.  
 
 `exp_to_jcounts.R` - script that joines experimental count tables to ORf vs expriment count table  
 `jcount_to_GO.R` -  script that performs GO analysis of `jcounts_exp.txt` table  
