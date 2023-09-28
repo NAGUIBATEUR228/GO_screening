@@ -60,7 +60,7 @@ print(str(datetime.now()) + ' ' + str(dirs))  # directories with fastq files
 if need_to_BLAST:
     seqs = pd.Series(dtype=object)
     for i in dirs:
-        p = path + i + '\\artem'
+        p = path + i + '\\output_folder'
         content = os.listdir(p)
         files = []
         for file in content:
@@ -225,7 +225,7 @@ print(str(datetime.now()) + ' filtered and barcoded')
 
 
 for i in dirs:
-    p = path + i + '\\artem'
+    p = path + i + '\\output_folder'
     content = os.listdir(p)
     files = []
     for file in content:
