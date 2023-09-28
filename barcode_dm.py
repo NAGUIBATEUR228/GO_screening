@@ -5,14 +5,15 @@ import re
 from datetime import datetime
 from sys import argv
 
+# choose wether the reads are already blasted
 if len(argv) > 1:
     need_to_BLAST = bool(int(argv[1]))
 else:
     need_to_BLAST = True
 
+# adapter sequences
 u1 = "GATGTCCACGAGGTCTCT"
 u2 = "CGTACGCTGCAGGTCGAC"
-
 
 # reverse-complement string
 def rc(seq):
@@ -23,15 +24,17 @@ def rc(seq):
             reverse_complement = complement[nt] + reverse_complement
     return reverse_complement
 
-
+# make a hash table with names and sequences of adapters
 ud = {'u1': u1, 'u2': u2, 'u1_rc': rc(u1), 'u2_rc': rc(u2)}
 
-print('directory with script: C:\\Users\\zokmi\\Desktop\\study\\coursework\\')
+print('directory with script: C:\\path\\')
 directory = input('enter directory with data: ')
-path = f'C:\\Users\\zokmi\\Desktop\\study\\coursework\\{directory}\\'
+path = f'C:\\path\\{directory}\\'
 print(str(datetime.now()) + ' ' + path)
+# read reference file
 ref = pd.read_csv(f'{path}..\\reference.txt')
 
+# make intermediate output directories
 dmp = path + '..\\dark_matter'
 if need_to_BLAST:
     if not os.path.exists(dmp): os.mkdir(dmp)
@@ -42,6 +45,7 @@ if need_to_BLAST:
     f.close()
     os.system(f'makeblastdb -in dark_matter/query_u.fasta -dbtype nucl -out dark_matter/uref')
 
+# make summary table
 sumdm = pd.DataFrame({
     'exp': [], 'total_count': [], 'u_count': [], 'barcoded': [], 'u_barcoded': [], 'not_barcoded': [], 'u_nb': [],
     'matched': [], 'u_matched': [], 'not_matched': [], 'u_nm': []
@@ -52,6 +56,7 @@ for i in os.listdir(path):  # list of directory and file names
         dirs.append(i)
 print(str(datetime.now()) + ' ' + str(dirs))  # directories with fastq files
 
+# obtain all sequences from files
 if need_to_BLAST:
     seqs = pd.Series(dtype=object)
     for i in dirs:
@@ -68,6 +73,7 @@ if need_to_BLAST:
             seqs = pd.Series(pd.concat([seqs, nb['seq']], ignore_index=True).unique())
 
     print(len(seqs))
+# write the sequences to the file
 if need_to_BLAST:
     f = open(f'{dmp}\\{directory}_dm.fasta', "w")  # making fasta with BLAST queries
     for k in seqs:
@@ -77,12 +83,12 @@ if need_to_BLAST:
     print(str(datetime.now()) + ' ' + f'{dmp}\\{directory}_dm.fasta')
 
     # BLAST command, searching not_matched sequences in database uref
-
     os.system(
         f'blastn -query dark_matter/{directory}_dm.fasta -db dark_matter/uref -out dark_matter/out/{directory}_blastout.txt -evalue 0.001 -word_size 6 -strand plus -max_target_seqs 2 -outfmt \"6 qacc qlen sacc slen length nident evalue qstart qend sstart send\"')  # -num_threads 8
 
     print(str(datetime.now()) + ' BLASTed')
-    # subtracting -unknownseqname in outfile.
+    
+    # subtract -unknownseqname in outfile and add a header.
     with open(f'{dmp}\\out\\{directory}_blastout.txt', 'r') as f:
         old_data = f.read()
     new_data = 'qacc\tqlen\tsacc\tslen\tlength\tnident\tevalue\tqstart\tqend\tsstart\tsend\n' + old_data.replace(
@@ -90,16 +96,14 @@ if need_to_BLAST:
     with open(f'{dmp}\\out\\{directory}_blastout.txt', 'w') as f:
         f.write(new_data)
 
+# read blastn result
 check = pd.read_csv(f'{dmp}\\out\\{directory}_blastout.txt', sep='\t')
-# qacc - read sequence, sacc - primer name in 'ud'. 1 primer in sequence is not adequate
+# qacc - read sequence, sacc - primer name in 'ud'. remove sequences with only one primer found
 check = check[check.groupby(['qacc'])['sacc'].transform('count') >= 2]
-# check table is split in two parts. one of them contains sequences with more than one alignments with one primer. it is needed to choose only one.
+# split table in two parts. one of them contains sequences with more than one alignments with one primer. it is needed to choose only one.
 mask = check.groupby(['qacc', 'sacc'])['sacc'].transform('count') != 1
 check1 = check[~mask]
 check = check[mask]
-
-
-# print(check.groupby(['qacc'])['sacc'].value_counts())
 
 # function for checking if there are sequences with two alignments with one primer
 def ch(check):
@@ -107,7 +111,7 @@ def ch(check):
     print(a, max(a))
     return max(a) != 1
 
-
+# pass some selection procedures of the best alignments
 changed = True
 if changed:
     if ch(check):
@@ -166,6 +170,7 @@ if changed:
     else:
         changed = False
 print(ch(check))
+# combine tables
 check = pd.concat([check, check1], ignore_index=True)
 sacc = check['sacc'].values
 conditions = [
@@ -182,10 +187,13 @@ values = [
     check['qstart'].values - 1
 ]
 check['ind'] = np.select(conditions, values, default=None)
+
+# transform table to wide format of coordinates of alignments' borders
 print(str(datetime.now()) + ' pivot')
-w = pd.pivot(data=check, values='ind', index='qacc', columns='sacc').reset_index()
+w = pd.pivot(data = check, values = 'ind', index = 'qacc', columns = 'sacc').reset_index()
 w = w.where((pd.notnull(w)), None)
 u = w.columns.values.tolist()
+# check for alignments that allows to extract barocodes
 if sum([x in u for x in ud.keys()]) == 4:
     mask = (~pd.isna(w['u1']) & ~pd.isna(w['u2']) & (w['u1'] <= w['u2'])) | (
                 ~pd.isna(w['u1_rc']) & ~pd.isna(w['u2_rc']) & (w['u2_rc'] <= w['u1_rc']))
@@ -197,10 +205,11 @@ elif 'u1_rc' in u and 'u2_rc' in u:
     if 'u2' in u: w.drop(columns=['u2'], inplace=True)
 else:
     import sys
-
     print('data have no barcode')
     sys.exit()
 w = w[mask]
+
+# extract barcodes
 print(str(datetime.now()) + ' extraction')
 v = np.vectorize(lambda x, y, z: x[y:z])
 vecrc = np.vectorize(rc)
@@ -213,6 +222,8 @@ if 'u1_rc' in u:
                             w['barcode'].values)
 w.set_index('qacc', inplace=True)
 print(str(datetime.now()) + ' filtered and barcoded')
+
+
 for i in dirs:
     p = path + i + '\\artem'
     content = os.listdir(p)
@@ -220,7 +231,7 @@ for i in dirs:
     for file in content:
         if os.path.isfile(os.path.join(p, file)) and file.endswith('not_barcoded_raw_qual_count.csv'):
             files.append(file)
-    # parsing not_barcoded files in folders
+    # not_barcoded files in folders
     for j in files:
         name = re.split(r'_not_barcoded_raw_qual_count\.csv', j)[0]
         nb = pd.read_csv(f'{p}\\{j}')  # not_barcoded table
