@@ -22,7 +22,7 @@ to_join <- function(x){
 }
 
 #table with other synonyms of gene names. https://www.yeastgenome.org/
-yeast_genes <- read_tsv('..tables/yeast_gene_names.txt')
+yeast_genes <- read_tsv('../tables/yeast_gene_names.txt')
 #function converts all gene names either to systematic or standard with to_std=T option. 
 convert_names <- function(vals, to_std = F){
   if (length(vals) == 0){return(vals)}
@@ -128,11 +128,11 @@ read_files <- function(type, abrev, join = FALSE){
   return(chiffre)
 }
 
-#reading tables with count data
-chif <- read_files("output_count", '', TRUE)
-read_files("output_dm_count", 'dm', TRUE)
-read_files("blasted", 'b', TRUE)
-read_files("blasted_dm", 'bdm', TRUE)
+# reading tables with count data
+chif <- read_files("output_count", '', TRUE) # counts from reads with strict barcode and adapter math
+read_files("output_dm_count", 'dm', TRUE) # counts from reads with strict barcode and not-strict adapter math
+read_files("blasted", 'b', TRUE) # counts from reads with not-strict barcode and strict adapter math
+read_files("blasted_dm", 'bdm', TRUE) # counts from reads with not-strict barcode and not-strict adapter math
 
 tbs<-c(tablenames,
        tablenames %+% 'dm',
