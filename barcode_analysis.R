@@ -11,7 +11,7 @@ library(Biostrings)
 library(ShortRead)
 
 #write down a folder name on upper level
-folder <- 'ngs'
+folder <- 'exp'
 #write down the extension of fastq files
 typefq <- '.fastq'
 #write down the substring to be removed to get shorter output filenames if needed
