@@ -147,8 +147,6 @@ for (i in c('g1_d1', 'g2_d2', 'd2_d1', 'g2_g1')) {
   
   # Add result to GO_norm if "core_enrichment" is present
   if ( "core_enrichment" %in% names(norm_gsea@result)) {
-    #GO_ont <- norm_gsea@result %>% split(f = norm_gsea@result$ONTOLOGY)
-    #gsea1 <- GO_ont$BP%>%as_tibble%>%dplyr::select(!ONTOLOGY)
     gsea1 <- norm_gsea@result%>%
       as_tibble()%>%
       group_by(core_enrichment)%>%
@@ -166,13 +164,9 @@ for (i in c('g1_d1', 'g2_d2', 'd2_d1', 'g2_g1')) {
                            }
                            res })
                 })#true means j contains i
-    #rowSums(m)->son
     colSums(m) -> par
     res <- norm_gsea%>%
-      filter(ID %in% filter(gsea1, par == 0)$ID)
-    #goplot(res)
-    #gseaplot(res, 1)
-    
+      filter(ID %in% filter(gsea1, par == 0)$ID)    
     
     gene_clust <- res@result$core_enrichment %>%
       map(~convert_names(str_split(., '\\/') %>% unlist(), to_std = T)) %>%
