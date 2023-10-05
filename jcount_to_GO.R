@@ -3,6 +3,7 @@ library(tidyverse)
 library(clusterProfiler)  # For GSEA
 library('org.Sc.sgd.db')  # Database for Gene Onthology
 library(gprofiler2)  # For Over Representation Analysis
+library(multimode) 
 
 # Read table made with https://www.yeastgenome.org/
 # Contains systematic and some standard gene names
@@ -79,10 +80,19 @@ jc <- jcounts %>%
 n = jc %>% dplyr::select(!name) %>% colSums %>% mean
 jc <- jc %>% mutate(across(!name, ~ .x / sum(.x) * n))
 
+
 jc %>%
   filter(d1 > 0) %>%
-  mutate(across(!name, ~ .x + 1)) %>%
-  mutate(across(!name, ~ .x / d1)) %>%
+  mutate(d = log2(d1)) %>%
+  mutate(delta = max(d) - (max(d) - locmodes(d)$locations) * 2) %>%
+  filter(d > delta) %>%
+  pull(d1) %>%
+  min() -> min_count
+
+jc%>%
+  filter(d1 >= min_count)%>%
+  mutate(across(!name, ~ .x + 1))%>%
+  mutate(across(!name, ~ .x / d1))%>%
   mutate(across(!name, ~ log2(.x))) -> to_go
 
 to_go$g1 %>% hist(breaks = 1000)
@@ -97,7 +107,7 @@ GO_norm <- tibble(
   pvalue = numeric(), 
   Description = character(), 
   condition = character(), 
-  overrep = logical(), 
+  NES = numeric(), 
   geneID = character()
 )
 
@@ -106,7 +116,7 @@ for (i in c('g1_d1', 'g2_d2', 'd2_d1', 'g2_g1')) {
   
   # Define condition
   condition <- i
-  print(paste("GSEA",condition))
+  print(paste("GSEA", condition))
   
   # Split the condition into t and u
   t = str_split_1(condition, '_')[1]
@@ -120,7 +130,7 @@ for (i in c('g1_d1', 'g2_d2', 'd2_d1', 'g2_g1')) {
     dplyr::select(gene, log2FoldChange) -> res
   
   # Consider cutting conditions
-  cut <- res %>% filter(!str_detect(gene, '\\|'), log2FoldChange > 0)
+  cut <- res %>% filter(!str_detect(gene, '\\|'))
   
   # Process gene list
   gene_list <- cut$log2FoldChange
@@ -137,47 +147,47 @@ for (i in c('g1_d1', 'g2_d2', 'd2_d1', 'g2_g1')) {
   
   # Add result to GO_norm if "core_enrichment" is present
   if ( "core_enrichment" %in% names(norm_gsea@result)) {
-    gene_clust <- norm_gsea@result$core_enrichment %>%
+    #GO_ont <- norm_gsea@result %>% split(f = norm_gsea@result$ONTOLOGY)
+    #gsea1 <- GO_ont$BP%>%as_tibble%>%dplyr::select(!ONTOLOGY)
+    gsea1 <- norm_gsea@result%>%
+      as_tibble()%>%
+      group_by(core_enrichment)%>%
+      filter(setSize == min(setSize))%>%
+      ungroup()
+    
+    gsea1$core_enrichment%>%str_split('\\/') -> genesets
+    m <- sapply(genesets, 
+                function(j){
+                  sapply(genesets, 
+                         function(i){
+                           res <- sum(i %in% j) == length(i)
+                           if((res == T) & (res == (sum(j %in% i) == length(j)))){
+                             res <- FALSE
+                           }
+                           res })
+                })#true means j contains i
+    #rowSums(m)->son
+    colSums(m) -> par
+    res <- norm_gsea%>%
+      filter(ID %in% filter(gsea1, par == 0)$ID)
+    #goplot(res)
+    #gseaplot(res, 1)
+    
+    
+    gene_clust <- res@result$core_enrichment %>%
       map(~convert_names(str_split(., '\\/') %>% unlist(), to_std = T)) %>%
       map(~str_flatten(., collapse = '/')) %>% as.character()
     
-    GO_norm <- norm_gsea@result %>%
-      dplyr::select(Description, pvalue) %>%
-      mutate(condition = condition, overrep = T, geneID = gene_clust) %>%
-      add_row(GO_norm,.)
-  }
-  
-  # Repeat the process for log2FoldChange < 0
-  cut <- res %>% filter(!str_detect(gene, '\\|'), log2FoldChange < 0)
-  
-  gene_list <- -cut$log2FoldChange
-  names(gene_list) <- cut$gene %>% convert_names
-  gene_list <- sort(gene_list, decreasing = T)
-  
-  norm_gsea <- clusterProfiler::gseGO(
-    geneList = gene_list,
-    OrgDb = org.Sc.sgd.db,
-    keyType = "ENSEMBL",
-    ont = "BP"
-  )
-  
-  # Add result to GO_norm if "core_enrichment" is present
-  if ( "core_enrichment" %in% names(norm_gsea@result)) {
-    gene_clust <- norm_gsea@result$core_enrichment %>%
-      map(~convert_names(str_split(., '\\/') %>% unlist(), to_std = T)) %>%
-      map(~str_flatten(., collapse = '/')) %>% as.character()
-    
-    GO_norm <- norm_gsea@result %>%
-      dplyr::select(Description, pvalue) %>%
-      mutate(condition = condition, overrep = F, geneID = gene_clust) %>%
+    GO_norm <- res@result %>%
+      dplyr::select(Description, NES, pvalue) %>%
+      mutate(condition = condition, geneID = gene_clust) %>%
       add_row(GO_norm,.)
   }
 }
 
 # Write the results to a TSV file
 GO_norm %>% 
-  mutate(overrep = factor(overrep, levels = c(T,F))) %>% 
-  arrange(condition, overrep, pvalue) %>%
+  arrange(condition, NES, pvalue) %>%
   write_tsv('./GSEA_exp.txt')
 
 # Read the TSV file
