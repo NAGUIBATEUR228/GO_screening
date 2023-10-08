@@ -89,9 +89,9 @@ cut_significant <- function(df, col, log = T){
 workingDIR <- "C:/path/wd"
 setwd(workingDIR)
 
-#folder_with_fastq has folders for each fastq file with count data table in inner some_name folder.
-seqdirs <- list.dirs(path = '../' %+% folder_with_fastq, recursive = FALSE) %+% '/some_name' #e.g. ../folder_with_fastq/fastq_name/some_name
-seqfiles <- unlist(map(seqdirs, ~paste(.x, dir(.x) %>% str_subset("output_count.csv$"), sep='/'))) # ../folder_with_fastq/fastq_name/some_name/XYZ_output_count.csv
+#folder_with_fastq has folders for each fastq file with count data table in inner output_folder folder.
+seqdirs <- list.dirs(path = '../' %+% folder_with_fastq, recursive = FALSE) %+% '/output_folder' #e.g. ../folder_with_fastq/fastq_name/output_folder
+seqfiles <- unlist(map(seqdirs, ~paste(.x, dir(.x) %>% str_subset("output_count.csv$"), sep='/'))) # ../folder_with_fastq/fastq_name/output_folder/XYZ_output_count.csv
 
 #variables for the tables
 tablenames <- rep(c('d','g'),each=4)%+%rep(1:2,2,each = 2)%+%rep(1:2,4)
