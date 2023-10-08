@@ -180,8 +180,10 @@ for (i in c('g1_d1', 'g2_d2', 'd2_d1', 'g2_g1')) {
 }
 
 # Write the results to a TSV file
-GO_norm %>% 
-  arrange(condition, NES, pvalue) %>%
+GO_norm %>%
+  mutate(overrep = factor(NES > 0, levels = c(T,F))) %>%
+  arrange(condition, overrep, pvalue)%>%
+  dplyr::select(!overrep)%>%
   write_tsv('./GSEA_exp.txt')
 
 # Read the TSV file
@@ -193,7 +195,7 @@ files <- GSEA_exp_to_split$condition %>% unique
 # Write each condition to a separate file
 map(files, ~ write_tsv(GSEA_exp_to_split %>% 
                          filter(str_detect(condition, .x)),
-                       './GSE_exp_' %+% .x %+% '.txt'))
+                       './GSEA_exp_' %+% .x %+% '.txt'))
 
 ################
 ##### ORA
