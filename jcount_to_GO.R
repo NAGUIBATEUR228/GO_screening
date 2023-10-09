@@ -97,6 +97,7 @@ jc%>%
 
 to_go$g1 %>% hist(breaks = 1000)
 
+noMtDNA <- convert_names((read_csv2('../ref/noMtDNA.csv')$noMtDNA_Puddu) %>% na.omit)
 
 ################
 ##### GSEA
