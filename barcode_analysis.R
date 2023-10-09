@@ -26,10 +26,10 @@ rev_compl_string <- function(x) {
   as.character(reverseComplement(DNAStringSet(x)))
 }
 
-#read file with reference barcodes of YKOC
+#read file with reference barcodes of YKOC https://horizondiscovery.com/en/non-mammalian-research-tools/products/yeast-knockout#resources
 ref_nm <- read_tsv("../ref_nm.txt") %>%
-  transmute(Confirmed_deletion = Original_ORF,
-            UPTAG_seqs = Barcode,
+  transmute(Confirmed_deletion = ORF,
+            UPTAG_seqs = UPTAG_seq,
             UPTAG_notes = 'YKOC')
 
 #read file with Reference reads file generated from Puddu et al. 2019
