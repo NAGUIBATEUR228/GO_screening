@@ -13,21 +13,22 @@ it requires `puddu.txt` and `ref_nm.txt` and produces also  `reference.txt`:
 
 `barocde_dm.py` - script that extracts barcodes as `barcode_analysis.R` from reads with inaccurate adapter sequence  
 `barcode_blast.py` - script that matches mutant barcodes using BLAST command line program  
-> to install blastn on local computer download [here](https://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/LATEST/) for example `ncbi-blast-2.14.1+-win64.exe` and add bin/blastn to the PATH.  
+> to install blastn on local computer for example ypu can download [here](https://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/LATEST/) `ncbi-blast-2.14.1+-win64.exe` and add bin/blastn to the PATH.  
 
-`exp_to_jcounts.R` - script that joines experimental count tables to ORf vs expriment count table  
+`exp_to_jcounts.R` - script that joines experimental count tables to ORF vs expriment count table  
 `jcount_to_GO.R` -  script that performs GO analysis of `jcounts_exp.txt` table  
 both these scripts require `tight_orfs.tsv` and `yeast_gene_names.txt` - the tables with standard and systematic gene names.
+`noMtDNA.csv` - table from Puddu et al. with strains without mtDNA in first column
 
 `GSEA_exp.txt` - a table with all GO terms found in comparisons
-|pvalue|Description|condition|overrep|geneID|
+|pvalue|Description|condition|NES|geneID|
 |--|--|--|--|--|
-|1e-10|translation|d2_d1|FALSE|ZUO1/RPL21A/LSO2...|
+|1e-6|mitochondrial translation|d2_d1|-1.668|MTF2/MBA1/MRPL20...|
 
 ***pvalue*** - corrected pvalue of a GO term  
 ***Description*** - description of a GO term  
 ***condition*** - describes which columns of jcounts are compared (treated_untreated)  
-***overrep*** - TRUE means that the positive LogFC genes were analysed, i.e. overrepresented in treated. FALSE corresponds to negative LogFC.  
+***NES*** - normalised enrichment score. positive value means enrichment of this term at the begining of the list
 ***geneID*** - a list of genes in GO term separated by slash
 
 ## [jcount_to_GO.R](https://github.com/NAGUIBATEUR228/GO_screening/blob/main/jcount_to_GO.R)
@@ -43,7 +44,7 @@ library(gprofiler2) #for Over Representation Analysis
 
 After writing aiding functions and creating jcounts table the analysis itself starts
 
-Reading file with joined count data
+Read file with joined count data
 ```r
 setwd("C:/path/exp")
 jcounts <- read_csv("jcounts_exp.csv")
@@ -54,7 +55,7 @@ jcounts <- read_csv("jcounts_exp.csv")
 |AAC3|2182|7250|1580|12191|
 |AAD3|4121|746|6555|1143|
 
-Normalisation of the counts equalizing library size
+Normalise of the counts equalizing library size
 ```r
 jc <- jcounts%>%
   filter(if_any(where(is.numeric), ~.x!=0))
@@ -62,13 +63,29 @@ n = jc%>%dplyr::select(!name) %>% colSums %>% mean
 jc <- jc %>% mutate(across(!name, ~ .x / sum(.x) * n))
 ```
 
-Evaluating LogFoldChange in comparison to original pool
+Estimate min_count of barcodes in d1
+```r
+jc %>%
+  filter(d1 > 0) %>%
+  mutate(d = log2(d1)) %>%
+  mutate(delta = max(d) - (max(d) - locmodes(d)$locations) * 2) %>%
+  filter(d > delta) %>%
+  pull(d1) %>%
+  min() -> min_count
+```
+
+Evaluate LogFoldChange in comparison to original pool (d1)
 ```r
 jc%>%
-  filter(d1 > 0)%>%
+  filter(d1 >= min_count)%>%
   mutate(across(!name, ~ .x + 1))%>%
   mutate(across(!name, ~ .x / d1))%>%
   mutate(across(!name, ~ log2(.x))) -> to_go
+```
+
+Read table with strains without mtDNA
+```r
+noMtDNA <- convert_names((read_csv2('../ref/noMtDNA.csv')$noMtDNA_Puddu)%>%na.omit)
 ```
 
 The table for results of Gene Set Enrichment Analysis has columns with p-value of GO-term, name of GO-term, condition i.e. which experiments are compared, overrepresented or not the term in a "treated" experiment, gene IDs in term.
@@ -77,11 +94,11 @@ The table for results of Gene Set Enrichment Analysis has columns with p-value o
 GO_norm <- tibble(pvalue = numeric(),
            Description = character(),
            condition = character(),
-           overrep = logical(),
+           NES = numeric(),
            geneID = character())
 ```
 
-Subtracting LogFC provides proper LogFC for these experiments in condition.
+Subtract LogFC providing proper LogFC for these experiments in condition.
 ```r
 for (i in c('g1_d1', 'g2_d2', 'd2_d1', 'g2_g1')){
   condition <- i
@@ -93,11 +110,11 @@ for (i in c('g1_d1', 'g2_d2', 'd2_d1', 'g2_g1')){
     mutate(gene = name) %>% 
     dplyr::select(gene, log2FoldChange) -> res
 ```
-Cutting a gene list allows to measure separately over- and underrepresented genes. Adding minus to LogFC helps to sort undedrrepresented genes for GSEA. 
+Cut a gene list and run GSEA
 ```r
- cut <- res %>% filter(!str_detect(gene, '\\|'), log2FoldChange < 0)
+ cut <- res %>% filter(!str_detect(gene, '\\|'), !(convert_names(gene) %in% noMtDNA))
   
-  gene_list <- -cut$log2FoldChange
+  gene_list <- cut$log2FoldChange
   names(gene_list) <- cut$gene%>%convert_names
   gene_list <- sort(gene_list, decreasing = T)
   
